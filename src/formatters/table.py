@@ -38,6 +38,8 @@ class TableFormatter(Formatter):
                 crypto.name,
                 self._format_price(crypto.current_price),
                 self._format_change(crypto.change_24h_percent),
+                self._format_price(crypto.ath),
+                self._format_ath_drawdown(crypto.current_price, crypto.ath),
                 self._format_market_cap(crypto.market_cap),
                 self._format_rank(crypto.market_cap_rank),
             ]
@@ -48,6 +50,8 @@ class TableFormatter(Formatter):
             "Name",
             "Price (USD)",
             "24h Change",
+            "ATH (USD)",
+            "Down From ATH",
             "Market Cap (USD)",
             "Rank",
         ]
@@ -83,6 +87,15 @@ class TableFormatter(Formatter):
             return f"${market_cap / 1e6:.2f}M"
         else:
             return f"${market_cap:,.2f}"
+
+    @staticmethod
+    def _format_ath_drawdown(current_price: float, ath: float) -> str:
+        """Format percentage below all-time high."""
+        if current_price is None or ath is None or ath <= 0:
+            return "N/A"
+
+        drawdown = max(0.0, ((ath - current_price) / ath) * 100)
+        return f"{drawdown:.2f}%"
 
     @staticmethod
     def _format_rank(rank: int) -> str:

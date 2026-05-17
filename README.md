@@ -71,11 +71,11 @@ python coinping.py --random
                                   /____/
 CoinPing - pinging coin data directly into your terminal.
 
-Symbol    Name       Price (USD)    24h Change    Market Cap (USD)    Rank
-------    --------   -----------    ----------    ----------------    -----
-BTC       Bitcoin    $65,234.50     +2.34%        $1,285.43B          1
-ETH       Ethereum   $3,428.75      +1.12%        $411.23B            2
-SOL       Solana     $142.50        +5.67%        $61.23B             5
+Symbol    Name       Price (USD)    24h Change    ATH (USD)    Down From ATH    Market Cap (USD)    Rank
+------    --------   -----------    ----------    ---------    -------------    ----------------    -----
+BTC       Bitcoin    $65,234.50     +2.34%        $69,000.00   5.46%            $1,285.43B          1
+ETH       Ethereum   $3,428.75      +1.12%        $4,800.00    28.57%           $411.23B            2
+SOL       Solana     $142.50        +5.67%        $260.00      45.19%           $61.23B             5
 ```
 
 **JSON Format:**
@@ -155,6 +155,8 @@ Table output shows:
 - **Name** - Full name (Bitcoin, Ethereum, etc.)
 - **Price (USD)** - Current price in USD
 - **24h Change** - 24-hour price change percentage
+- **ATH (USD)** - All-time high price
+- **Down From ATH** - Percentage below all-time high
 - **Market Cap (USD)** - Total market capitalization
 - **Rank** - Market-cap rank
 
