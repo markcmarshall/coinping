@@ -386,7 +386,7 @@ Found a bug or have a feature request? Feel free to:
 
 ## License
 
-This project is provided as-is for educational and personal use.
+MIT License
 
 ## Support
 
