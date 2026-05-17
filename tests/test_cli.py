@@ -31,6 +31,39 @@ class FakeCoinGeckoAPI:
     def get_supported_tokens(self):
         return ["BTC", "ETH"]
 
+    def fetch_top_tokens(self, limit):
+        return [
+            CryptoData(
+                symbol=f"TOP{index}",
+                name=f"Top Coin {index}",
+                current_price=float(index),
+                market_cap=1000000 * index,
+                market_cap_rank=index,
+                change_24h_percent=1.0,
+                circulating_supply=1000000,
+                total_supply=2000000,
+                ath=10.0,
+                atl=0.1,
+                last_updated="2026-05-15T12:00:00Z",
+            )
+            for index in range(1, limit + 1)
+        ]
+
+    def fetch_random_token(self):
+        return CryptoData(
+            symbol="RND",
+            name="Random Coin",
+            current_price=1.23,
+            market_cap=123000000,
+            market_cap_rank=321,
+            change_24h_percent=None,
+            circulating_supply=1000000,
+            total_supply=2000000,
+            ath=5.0,
+            atl=0.01,
+            last_updated="2026-05-15T12:00:00Z",
+        )
+
 
 def test_table_output_includes_logo_and_tagline(monkeypatch):
     """Table output should include the branded banner."""
@@ -55,12 +88,45 @@ def test_json_output_is_machine_readable_without_banner(monkeypatch):
     assert json.loads(result.output)["BTC"]["name"] == "Bitcoin"
 
 
-def test_list_output_includes_logo_and_tagline(monkeypatch):
-    """The supported-token list should include the branded banner."""
+def test_top_output_includes_requested_count(monkeypatch):
+    """Top-token output should fetch the requested number of coins."""
     monkeypatch.setattr("coinping.CoinGeckoAPI", FakeCoinGeckoAPI)
 
-    result = CliRunner().invoke(main, ["--list"])
+    result = CliRunner().invoke(main, ["--top", "3"])
 
     assert result.exit_code == 0
     assert TAGLINE in result.output
-    assert "BTC, ETH" in result.output
+    assert "TOP1" in result.output
+    assert "TOP3" in result.output
+
+
+def test_top_output_warns_for_large_requests(monkeypatch):
+    """Large top-token requests should warn about API quota."""
+    monkeypatch.setattr("coinping.CoinGeckoAPI", FakeCoinGeckoAPI)
+
+    result = CliRunner().invoke(main, ["--top", "101"])
+
+    assert result.exit_code == 0
+    assert "consume CoinGecko API quota quickly" in result.output
+
+
+def test_random_output_fetches_random_token(monkeypatch):
+    """Random mode should fetch a single arbitrary token."""
+    monkeypatch.setattr("coinping.CoinGeckoAPI", FakeCoinGeckoAPI)
+
+    result = CliRunner().invoke(main, ["--random"])
+
+    assert result.exit_code == 0
+    assert TAGLINE in result.output
+    assert "RND" in result.output
+    assert "Random Coin" in result.output
+
+
+def test_modes_are_mutually_exclusive(monkeypatch):
+    """Users should choose exactly one fetch mode."""
+    monkeypatch.setattr("coinping.CoinGeckoAPI", FakeCoinGeckoAPI)
+
+    result = CliRunner().invoke(main, ["BTC", "--random"])
+
+    assert result.exit_code == 1
+    assert "not more than one mode" in result.output

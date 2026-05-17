@@ -1,4 +1,5 @@
 """CoinGecko API implementation for cryptocurrency data."""
+import random
 import time
 from typing import List, Optional, Dict, Any
 
@@ -8,6 +9,10 @@ from src.api.base import CryptoAPIHandler
 from src.config import COINGECKO_API_BASE, API_TIMEOUT, RETRY_ATTEMPTS, RETRY_BACKOFF
 from src.exceptions import APIError, NetworkError, TokenNotFoundError
 from src.models import CryptoData
+
+
+MAX_TOP_TOKENS = 500
+COINS_MARKETS_PAGE_SIZE = 250
 
 
 class CoinGeckoAPI(CryptoAPIHandler):
@@ -120,6 +125,13 @@ class CoinGeckoAPI(CryptoAPIHandler):
         except Exception as e:
             raise APIError(f"Failed to load supported tokens: {str(e)}") from e
 
+    def _load_supported_coins(self) -> List[Dict[str, Any]]:
+        """Load list of all supported coins from CoinGecko."""
+        try:
+            return self._get_request("/coins/list")
+        except Exception as e:
+            raise APIError(f"Failed to load supported coins: {str(e)}") from e
+
     def validate_token(self, symbol: str) -> bool:
         """Check if a token symbol exists.
 
@@ -193,6 +205,61 @@ class CoinGeckoAPI(CryptoAPIHandler):
             results.append(self.fetch_token(symbol))
         return results
 
+    def fetch_top_tokens(self, limit: int) -> List[CryptoData]:
+        """Fetch top cryptocurrencies by market cap.
+
+        Args:
+            limit: Number of ranked tokens to retrieve, up to MAX_TOP_TOKENS
+
+        Returns:
+            List of CryptoData objects ordered by market cap descending
+
+        Raises:
+            ValueError: If limit is outside the supported range
+            APIError: If API returns an error
+            NetworkError: If network request fails
+        """
+        if limit < 1 or limit > MAX_TOP_TOKENS:
+            raise ValueError(f"Top token limit must be between 1 and {MAX_TOP_TOKENS}")
+
+        results = []
+        page = 1
+
+        while len(results) < limit:
+            per_page = min(COINS_MARKETS_PAGE_SIZE, limit - len(results))
+            data = self._get_request(
+                "/coins/markets",
+                params={
+                    "vs_currency": "usd",
+                    "order": "market_cap_desc",
+                    "per_page": per_page,
+                    "page": page,
+                    "sparkline": False,
+                },
+            )
+
+            if not data:
+                break
+
+            results.extend(self._crypto_data_from_market_data(coin) for coin in data)
+            page += 1
+
+        return results[:limit]
+
+    def fetch_random_token(self) -> CryptoData:
+        """Fetch data for a random supported cryptocurrency."""
+        coins = self._load_supported_coins()
+        if not coins:
+            raise TokenNotFoundError("No supported tokens found.")
+
+        coin = random.choice(coins)
+        coin_id = coin.get("id")
+        if not coin_id:
+            raise APIError("Invalid coin list response: missing coin id")
+
+        symbol = coin.get("symbol", coin_id).upper()
+        return self._fetch_by_id(coin_id, symbol)
+
     def _fetch_by_id(self, coin_id: str, symbol: str) -> CryptoData:
         """Fetch cryptocurrency data by CoinGecko coin ID.
 
@@ -219,18 +286,44 @@ class CoinGeckoAPI(CryptoAPIHandler):
 
         try:
             market_data = data.get("market_data", {})
-            return CryptoData(
-                symbol=symbol,
-                name=data.get("name", "Unknown"),
-                current_price=market_data.get("current_price", {}).get("usd", 0.0),
-                market_cap=market_data.get("market_cap", {}).get("usd"),
-                market_cap_rank=data.get("market_cap_rank"),
-                change_24h_percent=market_data.get("price_change_percentage_24h"),
-                circulating_supply=market_data.get("circulating_supply"),
-                total_supply=market_data.get("total_supply"),
-                ath=market_data.get("ath", {}).get("usd"),
-                atl=market_data.get("atl", {}).get("usd"),
-                last_updated=data.get("last_updated", "Unknown"),
-            )
+            return self._crypto_data_from_coin_detail(data, market_data, symbol)
         except (KeyError, TypeError) as e:
             raise APIError(f"Invalid API response format: {str(e)}") from e
+
+    @staticmethod
+    def _crypto_data_from_coin_detail(
+        data: Dict[str, Any],
+        market_data: Dict[str, Any],
+        symbol: str,
+    ) -> CryptoData:
+        """Build CryptoData from the /coins/{id} endpoint."""
+        return CryptoData(
+            symbol=symbol,
+            name=data.get("name", "Unknown"),
+            current_price=market_data.get("current_price", {}).get("usd", 0.0),
+            market_cap=market_data.get("market_cap", {}).get("usd"),
+            market_cap_rank=data.get("market_cap_rank"),
+            change_24h_percent=market_data.get("price_change_percentage_24h"),
+            circulating_supply=market_data.get("circulating_supply"),
+            total_supply=market_data.get("total_supply"),
+            ath=market_data.get("ath", {}).get("usd"),
+            atl=market_data.get("atl", {}).get("usd"),
+            last_updated=data.get("last_updated", "Unknown"),
+        )
+
+    @staticmethod
+    def _crypto_data_from_market_data(data: Dict[str, Any]) -> CryptoData:
+        """Build CryptoData from the /coins/markets endpoint."""
+        return CryptoData(
+            symbol=data.get("symbol", "UNKNOWN").upper(),
+            name=data.get("name", "Unknown"),
+            current_price=data.get("current_price") or 0.0,
+            market_cap=data.get("market_cap"),
+            market_cap_rank=data.get("market_cap_rank"),
+            change_24h_percent=data.get("price_change_percentage_24h"),
+            circulating_supply=data.get("circulating_supply"),
+            total_supply=data.get("total_supply"),
+            ath=data.get("ath"),
+            atl=data.get("atl"),
+            last_updated=data.get("last_updated", "Unknown"),
+        )

@@ -33,6 +33,23 @@ def coin_search_result(coin_id, symbol, name, market_cap_rank=None):
     }
 
 
+def coin_market_result(symbol, name, market_cap_rank):
+    """Build the subset of market fields used by the API handler."""
+    return {
+        "symbol": symbol,
+        "name": name,
+        "current_price": 100.0,
+        "market_cap": 1000000,
+        "market_cap_rank": market_cap_rank,
+        "price_change_percentage_24h": 1.5,
+        "circulating_supply": 1000000,
+        "total_supply": 2000000,
+        "ath": 200.0,
+        "atl": 1.0,
+        "last_updated": "2026-05-15T12:00:00Z",
+    }
+
+
 @responses.activate
 def test_fetch_token_success(api):
     """Test successful token fetch."""
@@ -306,3 +323,73 @@ def test_fetch_token_prefers_exact_symbol_by_market_cap_rank(api):
     crypto = api.fetch_token("BTC")
 
     assert crypto.name == "Bitcoin"
+
+
+@responses.activate
+def test_fetch_top_tokens(api):
+    """Test fetching top tokens by market cap."""
+    responses.add(
+        responses.GET,
+        "https://api.coingecko.com/api/v3/coins/markets",
+        json=[
+            coin_market_result("btc", "Bitcoin", 1),
+            coin_market_result("eth", "Ethereum", 2),
+            coin_market_result("sol", "Solana", 3),
+        ],
+        status=200,
+    )
+
+    cryptos = api.fetch_top_tokens(3)
+
+    assert [crypto.symbol for crypto in cryptos] == ["BTC", "ETH", "SOL"]
+    assert [crypto.market_cap_rank for crypto in cryptos] == [1, 2, 3]
+
+
+def test_fetch_top_tokens_rejects_invalid_limit(api):
+    """Test top-token limit validation."""
+    with pytest.raises(ValueError):
+        api.fetch_top_tokens(501)
+
+
+@responses.activate
+def test_fetch_random_token(api, monkeypatch):
+    """Test fetching a random supported token."""
+    monkeypatch.setattr(
+        "src.api.coingecko.random.choice",
+        lambda coins: coins[1],
+    )
+    responses.add(
+        responses.GET,
+        "https://api.coingecko.com/api/v3/coins/list",
+        json=[
+            {"id": "bitcoin", "symbol": "btc", "name": "Bitcoin"},
+            {"id": "ethereum", "symbol": "eth", "name": "Ethereum"},
+        ],
+        status=200,
+    )
+    responses.add(
+        responses.GET,
+        "https://api.coingecko.com/api/v3/coins/ethereum",
+        json={
+            "id": "ethereum",
+            "name": "Ethereum",
+            "symbol": "ETH",
+            "market_cap_rank": 2,
+            "last_updated": "2026-05-15T12:00:00Z",
+            "market_data": {
+                "current_price": {"usd": 3428.75},
+                "market_cap": {"usd": 411234000000},
+                "price_change_percentage_24h": 1.12,
+                "circulating_supply": 120000000,
+                "total_supply": 120000000,
+                "ath": {"usd": 4800.00},
+                "atl": {"usd": 0.50},
+            },
+        },
+        status=200,
+    )
+
+    crypto = api.fetch_random_token()
+
+    assert crypto.symbol == "ETH"
+    assert crypto.name == "Ethereum"

@@ -51,6 +51,12 @@ python coinping.py BTC,ETH,SOL
 
 # JSON output
 python coinping.py BTC --format json
+
+# Fetch top market-cap tokens
+python coinping.py --top 10
+
+# Fetch a random token
+python coinping.py --random
 ```
 
 ### Example Output
@@ -63,7 +69,7 @@ python coinping.py BTC --format json
 / /___/ /_/ / / / / / ____/ / / / / /_/ /
 \____/\____/_/_/ /_/_/   /_/_/ /_/\__, /
                                   /____/
-CoinPing - pinging coin data into your terminal.
+CoinPing - pinging coin data directly into your terminal.
 
 Symbol    Name       Price (USD)    24h Change    Market Cap (USD)    Rank
 ------    --------   -----------    ----------    ----------------    -----
@@ -108,7 +114,8 @@ python coinping.py [OPTIONS] [SYMBOLS]...
 
 ```
 --format, -f [table|json]    Output format (default: table)
---list                        Show list of supported tokens
+--top INTEGER                 Fetch top N tokens by market cap (max 500)
+--random                      Fetch a random supported token
 -h, --help                    Show help message
 --version                     Show version
 ```
@@ -128,8 +135,11 @@ python coinping.py BTC,ETH,DOGE
 # JSON output
 python coinping.py BTC --format json
 
-# List first 100 supported tokens
-python coinping.py --list
+# Top 10 tokens by market cap
+python coinping.py --top 10
+
+# Random token
+python coinping.py --random
 
 # Show help
 python coinping.py --help
@@ -139,33 +149,41 @@ python coinping.py --help
 
 ### Data Provided
 
-For each cryptocurrency, the script returns:
+Table output shows:
 
-- **symbol** - Token symbol (BTC, ETH, etc.)
+- **Symbol** - Token symbol (BTC, ETH, etc.)
+- **Name** - Full name (Bitcoin, Ethereum, etc.)
+- **Price (USD)** - Current price in USD
+- **24h Change** - 24-hour price change percentage
+- **Market Cap (USD)** - Total market capitalization
+- **Rank** - Market-cap rank
+
+JSON output uses each token symbol as the top-level key and includes:
+
 - **name** - Full name (Bitcoin, Ethereum, etc.)
 - **current_price** - Current price in USD
 - **market_cap** - Total market capitalization
 - **market_cap_rank** - Position by market cap
 - **change_24h_percent** - 24-hour price change percentage
 - **circulating_supply** - Number of coins in circulation
-- **total_supply** - Total coins ever created
+- **total_supply** - Total coin supply reported by CoinGecko
 - **ath** - All-time high price
 - **atl** - All-time low price
 - **last_updated** - Last update timestamp
 
-### Supported Cryptocurrencies
+### Bulk and Random Fetches
 
-The script supports 14,000+ cryptocurrencies. To see the first 100:
+Use `--top N` to retrieve the top tokens by market cap. Requests are capped at 500 tokens, and requests above 100 print a quota warning.
 
-```bash
-python coinping.py --list
-```
+Use `--random` to retrieve one arbitrary CoinGecko-supported coin.
 
 ### API Source
 
 - **Provider**: CoinGecko
 - **API Base**: `https://api.coingecko.com/api/v3`
 - **Lookup**: Uses `/search` for ranked exact-symbol matching, then `/coins/{id}` for market data
+- **Top Tokens**: Uses `/coins/markets` ordered by market cap
+- **Random Token**: Uses `/coins/list` to choose an arbitrary coin ID, then `/coins/{id}` for market data
 - **Rate Limit**: Free public API limits apply
 - **Authentication**: Not required
 - **Documentation**: [CoinGecko API Docs](https://www.coingecko.com/api/documentation)
@@ -237,7 +255,6 @@ pytest tests/ --cov=src
 
 **Solution:** The token symbol doesn't exist on CoinGecko. Try:
 - Check spelling (case-insensitive, so BTc, BTC, btc all work)
-- Check if it's listed: `python coinping.py --list`
 - Some tokens may use different symbols than expected (e.g., DOGE, not DOG)
 
 ### Network Timeout
@@ -336,15 +353,18 @@ COINMARKETCAP_API_KEY=your_api_key_here
 
 ## Performance Notes
 
-- **First run**: ~1-2 seconds per token (includes token list download)
-- **Subsequent runs**: ~0.5-1 second per token (token list cached)
-- **Batch operations**: Fetches tokens sequentially to respect rate limits
+- **Symbol lookup**: ~1-2 seconds per token
+- **Top-token lookup**: Uses bulk market data requests, up to 250 tokens per API call
+- **Random lookup**: Uses one coin-list request plus one coin-detail request
+- **Batch symbol operations**: Fetches symbols sequentially to keep behavior simple
 
 ## Rate Limits
 
 - CoinGecko free API: 10-50 calls/minute
-- Typical usage: 1 call per token + 1 call for token list (once)
-- Should have no issues with normal usage
+- Symbol lookup: 1 search call + 1 detail call per token
+- Top-token lookup: 1 market-data call per 250 tokens requested
+- Random lookup: 1 coin-list call + 1 detail call
+- Large `--top` requests can consume API quota quickly; CoinPing caps this mode at 500 tokens
 
 ## Common Issues & Solutions
 
@@ -353,7 +373,7 @@ COINMARKETCAP_API_KEY=your_api_key_here
 | Command not found | Python not in PATH | Add Python to PATH or use full path |
 | Module not found | Dependencies not installed | Run `pip install -r requirements.txt` |
 | SSL Certificate error | Network/firewall issue | Check connection or update certificates |
-| Token not found | Invalid symbol | Check spelling or use `--list` |
+| Token not found | Invalid symbol | Check spelling or try a more common ticker |
 
 ## Future Enhancements
 
