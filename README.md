@@ -1,6 +1,6 @@
 # CoinPing
 
-A simple, easy-to-use Python CLI tool to fetch real-time cryptocurrency data from the CoinGecko API.
+A simple, easy-to-use Python CLI tool to fetch real-time cryptocurrency data from the CoinGecko API - no API key or configuration needed for basic use.
 
 ## Features
 
@@ -264,7 +264,7 @@ pytest tests/ --cov=src
 **Problem:** `Failed to connect after 3 attempts`
 
 **Solution:**
-- Check your internet connection
+- Check your tubes
 - Try again (the API may be temporarily unavailable)
 - The script retries automatically up to 3 times
 
@@ -273,19 +273,17 @@ pytest tests/ --cov=src
 **Problem:** Cannot reach CoinGecko API
 
 **Solution:**
-- Check your internet connection
+- Check your tubes
 - CoinGecko may be temporarily unavailable (rare)
 - Try a different token to verify connection
-- Check firewall/proxy settings if behind corporate network
 
 ### "Invalid API response format"
 
 **Problem:** Unexpected error from API
 
 **Solution:**
-- This is rare and usually means the API changed its response format
-- Try again later
-- If persists, report an issue with the token symbol you used
+- This is rare and may mean the API changed its response format
+- If it persists, report an issue with the token symbol you used
 
 ## Project Structure
 
@@ -317,17 +315,6 @@ CoinPing/
 └── examples/
     ├── simple_usage.py           # Basic usage example
     └── batch_lookup.py           # Multiple tokens example
-```
-
-## Configuration
-
-### Environment Variables
-
-Environment variables are not currently required. If additional API providers are added later, provider-specific settings can be introduced then:
-
-```env
-# CoinMarketCap API (if using that instead)
-COINMARKETCAP_API_KEY=your_api_key_here
 ```
 
 ## Development
